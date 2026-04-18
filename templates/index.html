@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeightonSec — Unified SOC Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            min-height: 100vh;
+            padding: 30px 20px;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 20px;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            color: #00ff88;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        header p { color: #666; font-size: 0.8rem; margin-top: 4px; }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #666;
+            font-size: 0.8rem;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #00ff88;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Alert Banner */
+        .alerts-section { margin-bottom: 24px; }
+
+        .alert-banner {
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .alert-banner:hover { opacity: 0.8; }
+        .alert-banner.CRITICAL { background: #2a0a0a; border: 1px solid #ff4444; border-left: 4px solid #ff4444; }
+        .alert-banner.HIGH { background: #1a1200; border: 1px solid #ffaa00; border-left: 4px solid #ffaa00; }
+        .alert-banner.MEDIUM { background: #111; border: 1px solid #333; border-left: 4px solid #666; }
+
+        .alert-content { display: flex; align-items: center; gap: 12px; }
+        .alert-severity {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        .severity-CRITICAL { background: #ff4444; color: #fff; }
+        .severity-HIGH { background: #ffaa00; color: #000; }
+        .alert-text { font-size: 0.85rem; }
+        .alert-tool { color: #666; font-size: 0.75rem; }
+        .alert-action { color: #00ff88; font-size: 0.75rem; }
+
+        .no-alerts {
+            background: #111;
+            border: 1px solid #1a3a1a;
+            border-left: 4px solid #00ff88;
+            padding: 12px 16px;
+            border-radius: 4px;
+            color: #00ff88;
+            font-size: 0.85rem;
+        }
+
+        /* Summary Stats */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-box {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 4px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-number { font-size: 1.8rem; font-weight: bold; color: #00ff88; }
+        .stat-number.critical { color: #ff4444; }
+        .stat-number.warning { color: #ffaa00; }
+        .stat-label { font-size: 0.7rem; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+        /* Tools Grid */
+        .section-title {
+            color: #666;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .tool-card {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 4px;
+            padding: 20px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .tool-card:hover { border-color: #00ff88; }
+        .tool-card.offline { opacity: 0.5; cursor: default; }
+        .tool-card.offline:hover { border-color: #222; }
+
+        .tool-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .tool-name { font-weight: bold; font-size: 1rem; }
+        .tool-layer { color: #666; font-size: 0.75rem; margin-top: 2px; }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #00ff88;
+        }
+
+        .status-dot.offline { background: #ff4444; }
+
+        .tool-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .tool-stat {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 4px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .tool-stat-number { font-size: 1.3rem; font-weight: bold; color: #00ff88; }
+        .tool-stat-number.red { color: #ff4444; }
+        .tool-stat-number.orange { color: #ffaa00; }
+        .tool-stat-label { font-size: 0.65rem; color: #666; text-transform: uppercase; margin-top: 2px; }
+
+        .offline-message {
+            color: #666;
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        /* SOC Toolkit Map */
+        .toolkit-map {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .toolkit-layers {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .layer-item {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 0.8rem;
+            text-align: center;
+        }
+
+        .layer-item.active { border-color: #00ff88; color: #00ff88; }
+        .layer-item.current { border-color: #00ff88; background: #001a0d; color: #00ff88; }
+        .layer-arrow { color: #333; font-size: 1.2rem; }
+
+        .last-updated {
+            color: #444;
+            font-size: 0.75rem;
+            text-align: right;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>⚡ LeightonSec SOC</h1>
+                <p>Unified Security Operations Dashboard</p>
+            </div>
+            <div class="live-indicator">
+                <div class="live-dot"></div>
+                LIVE
+            </div>
+        </header>
+
+        <!-- Alert Banner -->
+        <div class="alerts-section">
+            <div class="section-title">Active Alerts</div>
+            <div id="alertsBanner"></div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="summary-grid">
+            <div class="stat-box">
+                <div class="stat-number" id="statToolsOnline">0</div>
+                <div class="stat-label">Tools Online</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="statDetections">0</div>
+                <div class="stat-label">Detections</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number warning" id="statOpenIncidents">0</div>
+                <div class="stat-label">Open Incidents</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number critical" id="statCritical">0</div>
+                <div class="stat-label">Critical</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number critical" id="statEscalated">0</div>
+                <div class="stat-label">Escalated</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="statToolsTotal">0</div>
+                <div class="stat-label">Tools Total</div>
+            </div>
+        </div>
+
+        <!-- SOC Toolkit Map -->
+        <div class="toolkit-map">
+            <div class="section-title" style="margin-bottom:12px">SOC Toolkit — Layer Map</div>
+            <div class="toolkit-layers">
+                <div class="layer-item active">Ingestion<br><small>Intel Pipeline</small></div>
+                <div class="layer-arrow">→</div>
+                <div class="layer-item active">Detection<br><small>Log Analyser + PCAP</small></div>
+                <div class="layer-arrow">→</div>
+                <div class="layer-item active">Analysis<br><small>AI Firewall</small></div>
+                <div class="layer-arrow">→</div>
+                <div class="layer-item active">Response<br><small>Incident Tracker</small></div>
+                <div class="layer-arrow">→</div>
+                <div class="layer-item current">Visibility<br><small>Dashboard ← here</small></div>
+            </div>
+        </div>
+
+        <!-- Tools Grid -->
+        <div class="section-title">Tool Status</div>
+        <div class="tools-grid" id="toolsGrid"></div>
+
+        <div class="last-updated" id="lastUpdated"></div>
+    </div>
+
+    <script>
+        async function loadDashboard() {
+            try {
+                const res = await fetch('/api/dashboard');
+                const data = await res.json();
+                renderAlerts(data.alerts);
+                renderSummary(data.summary);
+                renderTools(data.tools);
+                document.getElementById('lastUpdated').textContent =
+                    'Last updated: ' + new Date().toLocaleTimeString('en-GB');
+            } catch (err) {
+                console.error('Dashboard error:', err);
+            }
+        }
+
+        function renderAlerts(alerts) {
+            const container = document.getElementById('alertsBanner');
+            if (alerts.length === 0) {
+                container.innerHTML = '<div class="no-alerts">✅ No active alerts — all systems normal</div>';
+                return;
+            }
+            container.innerHTML = alerts.map(a => `
+                <div class="alert-banner ${a.severity}" onclick="window.open('${a.url}', '_blank')">
+                    <div class="alert-content">
+                        <span class="alert-severity severity-${a.severity}">${a.severity}</span>
+                        <div>
+                            <div class="alert-text">${a.message}</div>
+                            <div class="alert-tool">${a.tool}</div>
+                        </div>
+                    </div>
+                    <div class="alert-action">Open Tool →</div>
+                </div>
+            `).join('');
+        }
+
+        function renderSummary(summary) {
+            document.getElementById('statToolsOnline').textContent = summary.tools_online;
+            document.getElementById('statDetections').textContent = summary.total_detections;
+            document.getElementById('statOpenIncidents').textContent = summary.open_incidents;
+            document.getElementById('statCritical').textContent = summary.critical_incidents;
+            document.getElementById('statEscalated').textContent = summary.escalated;
+            document.getElementById('statToolsTotal').textContent = summary.tools_total;
+        }
+
+        function renderTools(tools) {
+            const grid = document.getElementById('toolsGrid');
+            grid.innerHTML = Object.entries(tools).map(([key, tool]) => {
+                if (!tool.online) {
+                    return `
+                        <div class="tool-card offline">
+                            <div class="tool-header">
+                                <div>
+                                    <div class="tool-name">${tool.name}</div>
+                                    <div class="tool-layer">${tool.layer} Layer</div>
+                                </div>
+                                <div class="status-dot offline"></div>
+                            </div>
+                            <div class="offline-message">⚠️ Tool offline</div>
+                        </div>
+                    `;
+                }
+
+                let statsHtml = '';
+
+                if (key === 'ai_firewall' && tool.stats) {
+                    const s = tool.stats;
+                    statsHtml = `
+                        <div class="tool-stat">
+                            <div class="tool-stat-number">${s.total || 0}</div>
+                            <div class="tool-stat-label">Total</div>
+                        </div>
+                        <div class="tool-stat">
+                            <div class="tool-stat-number red">${s.high || 0}</div>
+                            <div class="tool-stat-label">High Risk</div>
+                        </div>
+                        <div class="tool-stat">
+                            <div class="tool-stat-number orange">${s.medium || 0}</div>
+                            <div class="tool-stat-label">Medium</div>
+                        </div>
+                    `;
+                }
+
+                if (key === 'incident_tracker' && tool.stats) {
+                    const s = tool.stats;
+                    statsHtml = `
+                        <div class="tool-stat">
+                            <div class="tool-stat-number orange">${s.open || 0}</div>
+                            <div class="tool-stat-label">Open</div>
+                        </div>
+                        <div class="tool-stat">
+                            <div class="tool-stat-number red">${s.critical || 0}</div>
+                            <div class="tool-stat-label">Critical</div>
+                        </div>
+                        <div class="tool-stat">
+                            <div class="tool-stat-number">${s.resolved || 0}</div>
+                            <div class="tool-stat-label">Resolved</div>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <a href="${tool.url}" target="_blank" class="tool-card">
+                        <div class="tool-header">
+                            <div>
+                                <div class="tool-name">${tool.name}</div>
+                                <div class="tool-layer">${tool.layer} Layer</div>
+                            </div>
+                            <div class="status-dot"></div>
+                        </div>
+                        <div class="tool-stats">${statsHtml}</div>
+                    </a>
+                `;
+            }).join('');
+        }
+
+        // Load immediately then refresh every 30 seconds
+        loadDashboard();
+        setInterval(loadDashboard, 30000);
+    </script>
+</body>
+</html>
