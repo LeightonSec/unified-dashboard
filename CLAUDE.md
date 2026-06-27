@@ -63,11 +63,12 @@ TOOLS = {
 - [ ] Mobile responsive layout
 
 ## Security Notes
-- SECRET_KEY in .env — never committed
+- SECRET_KEY in .env — never committed; app.py is fail-closed (raises at import if unset). conftest.py sets a dummy value so tests/CI can import app.py.
 - Dashboard only makes GET requests to tools — read only
 - All tool URLs hardcoded to 127.0.0.1 — localhost only
 - 2-3 second timeouts on all tool requests
 - Graceful degradation — no crashes if tools are offline
+- Untrusted aggregated data (two-layer XSS defense): the source tools ingest attacker-controlled input, so their /stats output is data-untrusted even though the fetch is localhost — localhost trust is not data trust. Layer 1: app.py `_safe_int` coerces every stat to an integer at the ingestion boundary (`get_tool_stats`). Layer 2: `templates/index.html` escapes every value via `escapeHtml()` before it reaches innerHTML. `escapeHtml` stops attribute breakout, not `javascript:`-scheme injection; the tool URLs are safe because they are hardcoded app-side, not network-derived.
 
 ## Conventions
 - All tool configs in TOOLS dict — never hardcode URLs elsewhere

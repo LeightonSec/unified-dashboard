@@ -1,5 +1,6 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from app import app as flask_app
 
@@ -129,6 +130,29 @@ class TestDashboard:
 
         data = client.get('/api/dashboard').get_json()
         assert data['alerts'] == []
+
+    @patch('app.requests.get')
+    def test_malicious_stat_coerced_to_int(self, mock_get, client):
+        """Boundary-coercion security anchor.
+
+        A source tool (untrusted data, even on localhost) returns an HTML/JS
+        payload in a stat field. app.py must coerce it to an int at ingestion
+        so nothing attacker-controlled propagates to the dashboard's innerHTML
+        sink. Pairs with the client-side escapeHtml second layer.
+        """
+        def side_effect(url, **kwargs):
+            if '5000' in url:
+                return _mock_get(status=200, json_data={
+                    'total': '<img src=x onerror=alert(1)>',
+                    'high': 'not-a-number',
+                })
+            return _mock_get(status=200, json_data={})
+        mock_get.side_effect = side_effect
+
+        stats = client.get('/api/dashboard').get_json()['tools']['ai_firewall']['stats']
+        assert stats['total'] == 0
+        assert stats['high'] == 0
+        assert all(isinstance(v, int) for v in stats.values())
 
     @patch('app.requests.get')
     def test_dashboard_structure(self, mock_get, client):

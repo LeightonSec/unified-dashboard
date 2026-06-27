@@ -93,6 +93,7 @@ TOOLS = {
 - Read-only — makes only GET requests to other tools, never writes
 - Localhost only — all tool URLs hardcoded to 127.0.0.1; not designed for distributed deployment
 - Designed to run alongside the rest of the LeightonSec SOC Toolkit
+- Untrusted aggregated data — the source tools ingest attacker-controlled input, so their stats are treated as untrusted even though the fetch is local. Two layers defend the dashboard: app.py coerces every stat to an integer at the ingestion boundary, and the UI escapes every value before rendering it into the DOM, preventing second-order XSS from a compromised or buggy source tool
 
 ---
 

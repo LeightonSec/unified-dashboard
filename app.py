@@ -1,7 +1,8 @@
 import os
+
 import requests
-from flask import Flask, render_template, jsonify
 from dotenv import load_dotenv
+from flask import Flask, jsonify, render_template
 
 load_dotenv()
 
@@ -27,11 +28,27 @@ TOOLS = {
     }
 }
 
+def _safe_int(value, default: int = 0) -> int:
+    """Coerce a tool-reported stat to an int at the trust boundary.
+
+    The dashboard only ever displays numeric counts. Source tools run on
+    localhost but ingest attacker-controlled input (hostile PCAPs, ticket
+    free-text), so their /stats output is data-untrusted even though the
+    connection is local — localhost trust is not data trust. Coercing every
+    stat to int here means no attacker-influenced string can reach the
+    dashboard's innerHTML sink. This pairs with the client-side escaping in
+    templates/index.html as defense in depth.
+    """
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
 def check_tool_health(url: str) -> bool:
     try:
         response = requests.get(url, timeout=2)  # gate: ignore — intentional localhost-only health check, all URLs hardcoded to 127.0.0.1
         return response.status_code == 200
-    except:
+    except Exception:
         return False
 
 def get_tool_stats(tool_key: str) -> dict:
@@ -42,8 +59,12 @@ def get_tool_stats(tool_key: str) -> dict:
         url = tool["url"] + tool["stats_endpoint"]
         response = requests.get(url, timeout=3)  # gate: ignore — intentional localhost-only stats fetch, all URLs hardcoded to 127.0.0.1
         if response.status_code == 200:
-            return response.json()  # gate: ignore — response from trusted SOC tool on localhost, not external input
-    except:
+            raw = response.json()
+            if isinstance(raw, dict):
+                # Coerce every stat to int at the boundary — see _safe_int.
+                # The source tool is localhost but its data is untrusted.
+                return {key: _safe_int(val) for key, val in raw.items()}
+    except Exception:
         pass
     return {}
 

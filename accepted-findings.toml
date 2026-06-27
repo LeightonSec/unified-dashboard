@@ -1,0 +1,20 @@
+# Accepted findings for unified-dashboard.
+# Each entry removes a finding from gate consideration — severity stays visible
+# in the report. Required fields: scanner, file, match (substring), rationale,
+# reviewer, date.
+
+[[accepted]]
+scanner   = "missing_validation"
+file      = "app.py"
+match     = "raw = response.json()"
+rationale = "False positive. The response is validated on the very next lines: get_tool_stats checks `isinstance(raw, dict)` and then coerces every value through _safe_int (returning a dict of ints), so no unvalidated external data is used. The dashboard consumes only numeric stat counts; _safe_int turns any non-numeric/attacker-influenced value into 0 at this trust boundary. The single-line scanner flags the .json() read without seeing the isinstance+coercion that immediately follows. Defense-in-depth second layer: client-side escapeHtml on all innerHTML interpolations in templates/index.html."
+reviewer  = "leighton"
+date      = "2026-06-27"
+
+[[accepted]]
+scanner   = "security_tool"
+file      = "tests/test_app.py"
+match     = "<img src=x onerror=alert(1)>"
+rationale = "By-design test fixture. This is an intentional XSS payload used as the input to test_malicious_stat_coerced_to_int, the regression anchor proving app.py coerces a malicious stat value to an int at the ingestion boundary (it asserts the payload becomes 0 and never propagates). The string is test data, not live attack tooling."
+reviewer  = "leighton"
+date      = "2026-06-27"

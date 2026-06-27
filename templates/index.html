@@ -305,6 +305,24 @@
     </div>
 
     <script>
+        // Escape any value before it is interpolated into innerHTML below.
+        // Dashboard data is aggregated from other SOC tools over HTTP; those
+        // tools ingest attacker-controlled input, so their fields are not
+        // trusted as HTML even though the fetch is localhost. app.py coerces
+        // stats to integers at the boundary; this is the second, independent
+        // layer (defense in depth).
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, function (c) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[c];
+            });
+        }
+
         async function loadDashboard() {
             try {
                 const res = await fetch('/api/dashboard');
@@ -326,12 +344,12 @@
                 return;
             }
             container.innerHTML = alerts.map(a => `
-                <div class="alert-banner ${a.severity}" onclick="window.open('${a.url}', '_blank')">
+                <div class="alert-banner ${escapeHtml(a.severity)}" onclick="window.open('${escapeHtml(a.url)}', '_blank')">
                     <div class="alert-content">
-                        <span class="alert-severity severity-${a.severity}">${a.severity}</span>
+                        <span class="alert-severity severity-${escapeHtml(a.severity)}">${escapeHtml(a.severity)}</span>
                         <div>
-                            <div class="alert-text">${a.message}</div>
-                            <div class="alert-tool">${a.tool}</div>
+                            <div class="alert-text">${escapeHtml(a.message)}</div>
+                            <div class="alert-tool">${escapeHtml(a.tool)}</div>
                         </div>
                     </div>
                     <div class="alert-action">Open Tool →</div>
@@ -356,8 +374,8 @@
                         <div class="tool-card offline">
                             <div class="tool-header">
                                 <div>
-                                    <div class="tool-name">${tool.name}</div>
-                                    <div class="tool-layer">${tool.layer} Layer</div>
+                                    <div class="tool-name">${escapeHtml(tool.name)}</div>
+                                    <div class="tool-layer">${escapeHtml(tool.layer)} Layer</div>
                                 </div>
                                 <div class="status-dot offline"></div>
                             </div>
@@ -372,15 +390,15 @@
                     const s = tool.stats;
                     statsHtml = `
                         <div class="tool-stat">
-                            <div class="tool-stat-number">${s.total || 0}</div>
+                            <div class="tool-stat-number">${escapeHtml(s.total || 0)}</div>
                             <div class="tool-stat-label">Total</div>
                         </div>
                         <div class="tool-stat">
-                            <div class="tool-stat-number red">${s.high || 0}</div>
+                            <div class="tool-stat-number red">${escapeHtml(s.high || 0)}</div>
                             <div class="tool-stat-label">High Risk</div>
                         </div>
                         <div class="tool-stat">
-                            <div class="tool-stat-number orange">${s.medium || 0}</div>
+                            <div class="tool-stat-number orange">${escapeHtml(s.medium || 0)}</div>
                             <div class="tool-stat-label">Medium</div>
                         </div>
                     `;
@@ -390,29 +408,32 @@
                     const s = tool.stats;
                     statsHtml = `
                         <div class="tool-stat">
-                            <div class="tool-stat-number orange">${s.open || 0}</div>
+                            <div class="tool-stat-number orange">${escapeHtml(s.open || 0)}</div>
                             <div class="tool-stat-label">Open</div>
                         </div>
                         <div class="tool-stat">
-                            <div class="tool-stat-number red">${s.critical || 0}</div>
+                            <div class="tool-stat-number red">${escapeHtml(s.critical || 0)}</div>
                             <div class="tool-stat-label">Critical</div>
                         </div>
                         <div class="tool-stat">
-                            <div class="tool-stat-number">${s.resolved || 0}</div>
+                            <div class="tool-stat-number">${escapeHtml(s.resolved || 0)}</div>
                             <div class="tool-stat-label">Resolved</div>
                         </div>
                     `;
                 }
 
                 return `
-                    <a href="${tool.url}" target="_blank" class="tool-card">
+                    <a href="${escapeHtml(tool.url)}" target="_blank" class="tool-card">
                         <div class="tool-header">
                             <div>
-                                <div class="tool-name">${tool.name}</div>
-                                <div class="tool-layer">${tool.layer} Layer</div>
+                                <div class="tool-name">${escapeHtml(tool.name)}</div>
+                                <div class="tool-layer">${escapeHtml(tool.layer)} Layer</div>
                             </div>
                             <div class="status-dot"></div>
                         </div>
+                        <!-- statsHtml is pre-built markup with its values already
+                             escaped above; do NOT wrap it in escapeHtml or the
+                             tags would be double-encoded and render as text. -->
                         <div class="tool-stats">${statsHtml}</div>
                     </a>
                 `;
